@@ -1,191 +1,356 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather Station Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #1a1a2e;
-            color: white;
+        * { font-family: 'Inter', sans-serif; }
+        
+        /* Animated Sun */
+        @keyframes sunPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 60px rgba(255, 200, 50, 0.6); }
+            50% { transform: scale(1.1); box-shadow: 0 0 100px rgba(255, 200, 50, 0.8); }
         }
-        h1 {
-            text-align: center;
-            color: #00d4aa;
+        
+        @keyframes sunRotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
-        .current {
-            background: #16213e;
-            padding: 20px;
-            border-radius: 10px;
-            margin: 20px 0;
-            text-align: center;
+        
+        .sun-container {
+            animation: sunPulse 4s ease-in-out infinite;
         }
-        .temp {
-            font-size: 48px;
-            color: #ff6b6b;
+        
+        .sun-rays {
+            animation: sunRotate 20s linear infinite;
         }
-        .humidity {
-            font-size: 24px;
-            color: #4ecdc4;
+        
+        /* Animated Clouds */
+        @keyframes float {
+            0%, 100% { transform: translateX(-100px) translateY(0px); }
+            25% { transform: translateX(0px) translateY(-20px); }
+            50% { transform: translateX(100px) translateY(0px); }
+            75% { transform: translateX(0px) translateY(20px); }
         }
-        .forecast {
-            background: #16213e;
-            padding: 20px;
-            border-radius: 10px;
-            margin: 20px 0;
+        
+        @keyframes drift {
+            from { transform: translateX(-200px); }
+            to { transform: translateX(calc(100vw + 200px)); }
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        
+        .cloud {
+            animation: drift 25s linear infinite;
         }
-        th, td {
-            padding: 10px;
-            text-align: center;
-            border-bottom: 1px solid #444;
+        
+        .cloud:nth-child(2) { animation-duration: 35s; animation-delay: -5s; }
+        .cloud:nth-child(3) { animation-duration: 30s; animation-delay: -10s; }
+        .cloud:nth-child(4) { animation-duration: 40s; animation-delay: -15s; }
+        .cloud:nth-child(5) { animation-duration: 28s; animation-delay: -20s; }
+        
+        /* Glassmorphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        th {
-            background: #0f3460;
-            color: #00d4aa;
+        
+        .glass-dark {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        .status {
-            text-align: center;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
+        
+        /* Weather animations */
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
         }
-        .online {
-            background: #2ecc71;
+        
+        .animate-glow {
+            animation: pulse-glow 2s ease-in-out infinite;
         }
-        .offline {
-            background: #e74c3c;
+        
+        /* Gradient background animation */
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
-        button {
-            background: #00d4aa;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background: #00b894;
+        
+        .animated-bg {
+            background: linear-gradient(-45deg, #1e3c72, #2a5298, #7e22ce, #1e3c72);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
         }
     </style>
 </head>
-<body>
-    <h1>🌤️ Weather Station Dashboard</h1>
+<body class="animated-bg min-h-screen">
+    <div id="root"></div>
     
-    <div id="status" class="status offline">Connecting...</div>
-    
-    <div class="current">
-        <h2>Current Conditions</h2>
-        <div class="temp" id="temp">28.5°C</div>
-        <div class="humidity" id="humidity">Humidity: 72%</div>
-        <div style="margin-top: 10px; color: #888;">Device: ESP32-Weather-01</div>
-    </div>
-    
-    <div class="forecast">
-        <h2>10-Hour Forecast</h2>
-        <table id="forecast-table">
-            <tr>
-                <th>Hour</th>
-                <th>Temp</th>
-                <th>Humidity</th>
-                <th>Condition</th>
-            </tr>
-        </table>
-    </div>
-    
-    <div style="text-align: center; margin-top: 20px;">
-        <button onclick="refreshData()">Refresh Data</button>
-        <p style="color: #888; font-size: 12px;">Last updated: <span id="last-update">Never</span></p>
-    </div>
-
-    <script>
-        // Simulated forecast data
-        const demoForecast = [
-            { hour_ahead: 1, temperature: 29.2, humidity: 70.5, condition: "Sunny" },
-            { hour_ahead: 2, temperature: 30.1, humidity: 68.2, condition: "Sunny" },
-            { hour_ahead: 3, temperature: 31.0, humidity: 65.8, condition: "Clear" },
-            { hour_ahead: 4, temperature: 31.8, humidity: 63.5, condition: "Clear" },
-            { hour_ahead: 5, temperature: 32.2, humidity: 62.0, condition: "Clear" },
-            { hour_ahead: 6, temperature: 31.5, humidity: 64.2, condition: "Sunny" },
-            { hour_ahead: 7, temperature: 30.2, humidity: 67.5, condition: "Sunny" },
-            { hour_ahead: 8, temperature: 28.8, humidity: 71.0, condition: "Cloudy" },
-            { hour_ahead: 9, temperature: 27.5, humidity: 74.5, condition: "Cloudy" },
-            { hour_ahead: 10, temperature: 26.2, humidity: 78.0, condition: "Humid / Hazy" }
-        ];
-
-        const API_URL = "https://8btk54jelk.execute-api.us-east-1.amazonaws.com/prod/weather";
-
-        async function fetchData() {
-            try {
-                const response = await fetch(API_URL);
-                if (response.ok) {
-                    const data = await response.json();
-                    return data;
-                }
-            } catch (e) {
-                console.log("API error, using demo data");
-            }
-            return null;
-        }
-
-        function updateDisplay(data) {
-            if (data && data.current) {
-                document.getElementById('temp').textContent = data.current.temperature.toFixed(1) + '°C';
-                document.getElementById('humidity').textContent = 'Humidity: ' + data.current.humidity.toFixed(1) + '%';
-                document.getElementById('status').textContent = 'Connected to AWS';
-                document.getElementById('status').className = 'status online';
-                
-                if (data.forecast) {
-                    updateForecast(data.forecast);
-                }
-            } else {
-                document.getElementById('status').textContent = 'Demo Mode (AWS IoT Core + Lambda + DynamoDB)';
-                document.getElementById('status').className = 'status offline';
-                updateForecast(demoForecast);
-            }
-            
-            document.getElementById('last-update').textContent = new Date().toLocaleString();
-        }
-
-        function updateForecast(forecast) {
-            const table = document.getElementById('forecast-table');
-            table.innerHTML = `
-                <tr>
-                    <th>Hour</th>
-                    <th>Temp</th>
-                    <th>Humidity</th>
-                    <th>Condition</th>
-                </tr>
-            `;
-            
-            forecast.forEach(f => {
-                const row = table.insertRow();
-                row.innerHTML = `
-                    <td>+${f.hour_ahead}h</td>
-                    <td>${f.temperature.toFixed(1)}°C</td>
-                    <td>${f.humidity.toFixed(1)}%</td>
-                    <td>${f.condition}</td>
-                `;
-            });
-        }
-
-        async function refreshData() {
-            document.getElementById('status').textContent = 'Loading...';
-            const data = await fetchData();
-            updateDisplay(data);
-        }
-
-        // Load on startup
-        refreshData();
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
         
-        // Auto refresh every 30 seconds
-        setInterval(refreshData, 30000);
+        // Animated Sun Component
+        const Sun = () => (
+            <div className="fixed top-10 right-10 z-0">
+                <div className="sun-container relative w-32 h-32">
+                    {/* Sun rays */}
+                    <div className="sun-rays absolute inset-0">
+                        {[...Array(12)].map((_, i) => (
+                            <div
+                                key={i}
+                                className="absolute w-1 h-8 bg-yellow-300 rounded-full"
+                                style={{
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: `rotate(${i * 30}deg) translateY(-70px)`,
+                                    transformOrigin: 'center'
+                                }}
+                            />
+                        ))}
+                    </div>
+                    {/* Sun body */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-yellow-300 to-orange-400 rounded-full" />
+                </div>
+            </div>
+        );
+        
+        // Animated Cloud Component
+        const Cloud = ({ delay, size, top }) => (
+            <div 
+                className="cloud fixed z-0 opacity-60"
+                style={{ 
+                    top: top,
+                    animationDelay: `${delay}s`
+                }}
+            >
+                <svg width={size} height={size * 0.6} viewBox="0 0 100 60" fill="white">
+                    <ellipse cx="25" cy="40" rx="20" ry="15" />
+                    <ellipse cx="50" cy="35" rx="25" ry="20" />
+                    <ellipse cx="75" cy="40" rx="20" ry="15" />
+                </svg>
+            </div>
+        );
+        
+        // Animated Clouds Container
+        const Clouds = () => (
+            <>
+                <Cloud delay={0} size={150} top="15%" />
+                <Cloud delay={5} size={120} top="25%" />
+                <Cloud delay={10} size={180} top="10%" />
+                <Cloud delay={15} size={100} top="30%" />
+                <Cloud delay={20} size={140} top="20%" />
+            </>
+        );
+        
+        // Weather Card Component
+        const WeatherCard = ({ title, value, unit, icon, color, delay }) => {
+            const [isVisible, setIsVisible] = useState(false);
+            
+            useEffect(() => {
+                setTimeout(() => setIsVisible(true), delay);
+            }, []);
+            
+            return (
+                <div 
+                    className={`glass-dark rounded-2xl p-6 transform transition-all duration-500 ${
+                        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+                    }`}
+                >
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-gray-300 text-sm">{title}</span>
+                        <span className={`text-2xl ${color}`}>{icon}</span>
+                    </div>
+                    <div className="text-3xl font-bold text-white">
+                        {value}<span className="text-lg text-gray-400 ml-1">{unit}</span>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Forecast Row Component
+        const ForecastRow = ({ hour, temp, humidity, condition, delay }) => {
+            const [isVisible, setIsVisible] = useState(false);
+            
+            useEffect(() => {
+                setTimeout(() => setIsVisible(true), delay);
+            }, []);
+            
+            const getConditionIcon = (cond) => {
+                if (cond.includes('Rain')) return '🌧️';
+                if (cond.includes('Cloud')) return '☁️';
+                if (cond.includes('Clear')) return '☀️';
+                if (cond.includes('Storm')) return '⛈️';
+                return '🌤️';
+            };
+            
+            return (
+                <tr 
+                    className={`border-b border-white/10 transition-all duration-300 hover:bg-white/5 ${
+                        isVisible ? 'translate-x-0 opacity-100' : '-translate-x-10 opacity-0'
+                    }`}
+                >
+                    <td className="py-3 px-4 text-cyan-300 font-semibold">+{hour}h</td>
+                    <td className="py-3 px-4 text-orange-300">{temp.toFixed(1)}°C</td>
+                    <td className="py-3 px-4 text-green-300">{humidity.toFixed(1)}%</td>
+                    <td className="py-3 px-4">
+                        <span className="mr-2">{getConditionIcon(condition)}</span>
+                        <span className="text-gray-300">{condition}</span>
+                    </td>
+                </tr>
+            );
+        };
+        
+        // Main App Component
+        const App = () => {
+            const [data, setData] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [lastUpdate, setLastUpdate] = useState(null);
+            
+            const API_URL = "https://8btk54jelk.execute-api.us-east-1.amazonaws.com/prod/weather";
+            
+            // Demo data fallback
+            const demoData = {
+                current: { temperature: 28.5, humidity: 72 },
+                forecast: [
+                    { hour_ahead: 1, temperature: 29.2, humidity: 70.5, condition: "Sunny" },
+                    { hour_ahead: 2, temperature: 30.1, humidity: 68.2, condition: "Sunny" },
+                    { hour_ahead: 3, temperature: 31.0, humidity: 65.8, condition: "Clear" },
+                    { hour_ahead: 4, temperature: 31.8, humidity: 63.5, condition: "Clear" },
+                    { hour_ahead: 5, temperature: 32.2, humidity: 62.0, condition: "Clear" },
+                    { hour_ahead: 6, temperature: 31.5, humidity: 64.2, condition: "Sunny" },
+                    { hour_ahead: 7, temperature: 30.2, humidity: 67.5, condition: "Sunny" },
+                    { hour_ahead: 8, temperature: 28.8, humidity: 71.0, condition: "Cloudy" },
+                    { hour_ahead: 9, temperature: 27.5, humidity: 74.5, condition: "Cloudy" },
+                    { hour_ahead: 10, temperature: 26.2, humidity: 78.0, condition: "Humid / Hazy" }
+                ]
+            };
+            
+            const fetchData = async () => {
+                try {
+                    const response = await fetch(API_URL);
+                    if (response.ok) {
+                        const json = await response.json();
+                        setData(json);
+                    } else {
+                        setData(demoData);
+                    }
+                } catch (e) {
+                    setData(demoData);
+                }
+                setLoading(false);
+                setLastUpdate(new Date());
+            };
+            
+            useEffect(() => {
+                fetchData();
+                const interval = setInterval(fetchData, 30000);
+                return () => clearInterval(interval);
+            }, []);
+            
+            const current = data?.current || demoData.current;
+            const forecast = data?.forecast || demoData.forecast;
+            
+            return (
+                <div className="relative min-h-screen overflow-hidden">
+                    {/* Background animations */}
+                    <Sun />
+                    <Clouds />
+                    
+                    {/* Main content */}
+                    <div className="relative z-10 container mx-auto px-4 py-8">
+                        {/* Header */}
+                        <header className="text-center mb-8">
+                            <h1 className="text-5xl font-bold text-white mb-2 drop-shadow-lg">
+                                🌤️ Weather Station
+                            </h1>
+                            <p className="text-cyan-300 text-lg">ESP32 → AWS IoT → Lambda → Dashboard</p>
+                            <div className={`inline-block mt-2 px-4 py-1 rounded-full text-sm ${
+                                data ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'
+                            }`}>
+                                {data ? '● Live Data' : '● Demo Mode'}
+                            </div>
+                        </header>
+                        
+                        {/* Current Weather Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 max-w-2xl mx-auto">
+                            <WeatherCard 
+                                title="Temperature" 
+                                value={current.temperature.toFixed(1)} 
+                                unit="°C" 
+                                icon="🌡️" 
+                                color="text-orange-400"
+                                delay={100}
+                            />
+                            <WeatherCard 
+                                title="Humidity" 
+                                value={current.humidity.toFixed(1)} 
+                                unit="%" 
+                                icon="💧" 
+                                color="text-blue-400"
+                                delay={200}
+                            />
+                        </div>
+                        
+                        {/* Forecast Table */}
+                        <div className="glass-dark rounded-2xl p-6 max-w-4xl mx-auto">
+                            <h2 className="text-2xl font-bold text-white mb-4 flex items-center">
+                                <span className="mr-2">📊</span>
+                                10-Hour Forecast
+                            </h2>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b-2 border-white/20">
+                                            <th className="py-3 px-4 text-left text-cyan-300">Hour</th>
+                                            <th className="py-3 px-4 text-left text-orange-300">Temp</th>
+                                            <th className="py-3 px-4 text-left text-green-300">Humidity</th>
+                                            <th className="py-3 px-4 text-left text-purple-300">Condition</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {forecast.map((f, i) => (
+                                            <ForecastRow 
+                                                key={i}
+                                                hour={f.hour_ahead}
+                                                temp={f.temperature}
+                                                humidity={f.humidity}
+                                                condition={f.condition}
+                                                delay={300 + i * 50}
+                                            />
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        {/* Footer */}
+                        <footer className="text-center mt-8 text-gray-400 text-sm">
+                            <p>Device: ESP32-Weather-01</p>
+                            <p className="mt-1">
+                                Last updated: {lastUpdate ? lastUpdate.toLocaleString() : 'Never'}
+                            </p>
+                            <button 
+                                onClick={fetchData}
+                                className="mt-4 px-6 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded-full transition-all border border-cyan-500/30"
+                            >
+                                🔄 Refresh Data
+                            </button>
+                        </footer>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Render app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>

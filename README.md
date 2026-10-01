@@ -4,9 +4,107 @@
 ESP32 (phone WiFi)
   → AWS IoT Core (MQTT/TLS)
       → IoT Rule → Lambda (runs model)
-          → Timestream
+          → DynamoDB
               → API Gateway → Lambda → Dashboard
 ```
+
+## 🚀 REAL PROJECT SETUP (Step-by-Step)
+
+Follow these exact steps to deploy the working weather station:
+
+### Step 1: AWS Services Setup
+
+1. **Create DynamoDB Table**
+   - Go to AWS Console → DynamoDB → Create table
+   - Table name: `weather-readings`
+   - Partition key: `device_id` (String)
+   - Sort key: `timestamp` (String)
+   - Click Create
+
+2. **Create Lambda Function (Predict)**
+   - Go to Lambda → Create function
+   - Name: `Weather-predict`
+   - Runtime: Python 3.12
+   - Paste code from `lambda_predict/lambda_function.py`
+   - Add environment variables: `TS_DATABASE=weatherdb`, `TS_TABLE=readings`
+   - Add permission: AmazonDynamoDBFullAccess
+   - Deploy
+
+3. **Create Lambda Function (API)**
+   - Go to Lambda → Create function
+   - Name: `weather-api`
+   - Runtime: Python 3.12
+   - Paste code from `lambda_api/lambda_function.py`
+   - Add permission: AmazonDynamoDBFullAccess
+   - Deploy
+
+4. **Create IoT Rule**
+   - Go to IoT Core → Message routing → Rules
+   - Name: `weather_to_lambda`
+   - SQL: `SELECT * FROM 'weather/data'`
+   - Action: Lambda → `Weather-predict`
+   - Create rule
+
+5. **Create API Gateway**
+   - Go to API Gateway → Create API → HTTP API
+   - Add integration: Lambda `weather-api`
+   - Route: GET `/weather`
+   - Deploy to stage: `prod`
+   - Copy the API URL (e.g., `https://xxx.execute-api.region.amazonaws.com/prod/weather`)
+
+### Step 2: ESP32 Hardware Setup
+
+1. **Wire the components:**
+   | Component | ESP32 Pin |
+   |-----------|-----------|
+   | BME280 SDA | GPIO 21 |
+   | BME280 SCL | GPIO 22 |
+   | TFT MOSI | GPIO 23 |
+   | TFT SCK | GPIO 18 |
+   | TFT CS | GPIO 5 |
+   | TFT DC | GPIO 2 |
+   | TFT RST | GPIO 4 |
+
+2. **Install Arduino libraries:**
+   - PubSubClient
+   - ArduinoJson
+   - Adafruit BME280
+   - Adafruit Unified Sensor
+   - TFT_eSPI (configure User_Setup.h)
+
+3. **Configure secrets.h:**
+   ```cpp
+   #define WIFI_SSID "your-wifi-name"
+   #define WIFI_PASSWORD "your-wifi-password"
+   #define AWS_IOT_ENDPOINT "your-endpoint-ats.iot.region.amazonaws.com"
+   ```
+
+4. **Upload sketch** to ESP32
+
+### Step 3: Dashboard Setup
+
+1. Edit `dashboard/index.html`:
+   ```javascript
+   const API_URL = "https://your-api-url.execute-api.region.amazonaws.com/prod/weather";
+   ```
+
+2. Deploy to GitHub Pages, Vercel, or Netlify
+
+3. Access dashboard in browser
+
+---
+
+## Demo Mode (No Hardware)
+
+If BME280 or WiFi fails, use `laptop_publisher.py` to send simulated data:
+```bash
+pip3 install paho-mqtt
+python3 laptop_publisher.py
+```
+
+---
+
+## Original Documentation Below
 
 ## Files
 
@@ -35,7 +133,7 @@ aws configure      # access key, secret, region (e.g. ap-south-1)
 python3 --version
 ```
 
-Hardware: ESP32 dev board, DHT22 (or DHT11), 10 kΩ resistor, jumper wires.
+Hardware: ESP32 dev board, BME280 sensor, 1.8" TFT display (ST7735), touch switch, jumper wires.
 
 ---
 
@@ -91,15 +189,35 @@ If (a) works but (b) returns empty, wait ~30 s — Timestream needs a moment.
 
 ---
 
-## Step 4 — Wire the sensor
+## Step 4 — Wire the hardware
 
-| DHT22 pin | ESP32 |
+### BME280 Sensor (I2C)
+| BME280 pin | ESP32 |
+|---|---|
+| VIN/VCC | 3V3 |
+| GND | GND |
+| SDA | GPIO 21 |
+| SCL | GPIO 22 |
+
+### TFT Display 1.8" (SPI - ST7735)
+| TFT pin | ESP32 |
 |---|---|
 | VCC | 3V3 |
 | GND | GND |
-| DATA | GPIO 4 |
+| MOSI (DIN) | GPIO 23 |
+| SCK (CLK) | GPIO 18 |
+| CS | GPIO 5 |
+| DC | GPIO 2 |
+| RST | GPIO 4 |
 
-Add a 10 kΩ pull-up between DATA and 3V3.
+### Touch Switch
+| Touch pin | ESP32 |
+|---|---|
+| VCC | 3V3 |
+| GND | GND |
+| SIG | GPIO 15 |
+
+All power connections (3V3 and GND) can be shared on the breadboard power rails.
 
 ---
 
@@ -109,7 +227,16 @@ Add a 10 kΩ pull-up between DATA and 3V3.
 2. **Library Manager** → install:
    - `PubSubClient`
    - `ArduinoJson`
-   - `DHT sensor library` + `Adafruit Unified Sensor`
+   - `Adafruit BME280 Library`
+   - `Adafruit Unified Sensor`
+   - `Adafruit GFX Library`
+   - `TFT_eSPI` by Bodmer
+
+3. **Configure TFT_eSPI:**
+   - Navigate to Arduino libraries folder → `TFT_eSPI`
+   - Copy `User_Setup.h` from this project to `TFT_eSPI/` folder
+   - OR edit `User_Setup_Select.h` and uncomment: `#include <User_Setups/Setup25_TTGO_T_Display.h>`
+   - OR use the provided `User_Setup.h` with custom pin definitions
 3. Create your secrets file and open the sketch:
    ```bash
    cp secrets.h.example secrets.h     # secrets.h is gitignored
@@ -194,7 +321,9 @@ Tune in `lambda_predict/lambda_function.py`:
 | WiFi stuck on dots | Hotspot must be 2.4 GHz; check SSID/password |
 | MQTT `rc=-2` | Wrong endpoint, or certs not pasted correctly |
 | MQTT connects then drops | IoT policy client ID must match `THING_NAME` |
-| `Sensor read failed` | Check wiring, pull-up resistor, `DHT_TYPE` |
+| `BME280 not found` | Check I2C wiring (SDA=GPIO21, SCL=GPIO22), try address 0x76 or 0x77 |
+| Display stays black | Check TFT_eSPI setup, verify SPI pins (MOSI=23, SCK=18, CS=5, DC=2, RST=4) |
+| Display colors inverted | Change `ST7735_RGB_ORDER` to `ST7735_BGR` in User_Setup.h |
 | Lambda `AccessDeniedException` | IAM still propagating — wait 30 s, retry |
 | Timestream rejects writes | Memory store retention must be ≥ 12 h |
 | API returns `[]` | No data in window yet — publish a reading first |

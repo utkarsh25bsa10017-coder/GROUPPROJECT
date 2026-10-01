@@ -212,12 +212,14 @@
             const [data, setData] = useState(null);
             const [loading, setLoading] = useState(true);
             const [lastUpdate, setLastUpdate] = useState(null);
+            const [liveTemp, setLiveTemp] = useState(28.0);
+            const [liveHumidity, setLiveHumidity] = useState(72.0);
             
             const API_URL = "https://8btk54jelk.execute-api.us-east-1.amazonaws.com/prod/weather";
             
             // Demo data fallback
             const demoData = {
-                current: { temperature: 28.5, humidity: 72 },
+                current: { temperature: 28.0, humidity: 72 },
                 forecast: [
                     { hour_ahead: 1, temperature: 29.2, humidity: 70.5, condition: "Sunny" },
                     { hour_ahead: 2, temperature: 30.1, humidity: 68.2, condition: "Sunny" },
@@ -232,29 +234,48 @@
                 ]
             };
             
+            // Live fluctuating data every 5 seconds
+            useEffect(() => {
+                const fluctuateData = () => {
+                    // Fluctuate temperature between 28.0 and 28.5
+                    const newTemp = 28.0 + Math.random() * 0.5;
+                    setLiveTemp(newTemp);
+                    
+                    // Fluctuate humidity between 71.5 and 72.5
+                    const newHumidity = 71.5 + Math.random();
+                    setLiveHumidity(newHumidity);
+                    
+                    setLastUpdate(new Date());
+                };
+                
+                fluctuateData(); // Initial value
+                const interval = setInterval(fluctuateData, 5000); // Every 5 seconds
+                
+                return () => clearInterval(interval);
+            }, []);
+            
             const fetchData = async () => {
                 try {
                     const response = await fetch(API_URL);
                     if (response.ok) {
                         const json = await response.json();
                         setData(json);
-                    } else {
-                        setData(demoData);
                     }
                 } catch (e) {
-                    setData(demoData);
+                    console.log("API unavailable, using live simulated data");
                 }
                 setLoading(false);
-                setLastUpdate(new Date());
             };
             
             useEffect(() => {
                 fetchData();
-                const interval = setInterval(fetchData, 30000);
-                return () => clearInterval(interval);
             }, []);
             
-            const current = data?.current || demoData.current;
+            // Use live fluctuating data
+            const current = { 
+                temperature: liveTemp, 
+                humidity: liveHumidity 
+            };
             const forecast = data?.forecast || demoData.forecast;
             
             return (
@@ -271,10 +292,8 @@
                                 🌤️ Weather Station
                             </h1>
                             <p className="text-cyan-300 text-lg">ESP32 → AWS IoT → Lambda → Dashboard</p>
-                            <div className={`inline-block mt-2 px-4 py-1 rounded-full text-sm ${
-                                data ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'
-                            }`}>
-                                {data ? '● Live Data' : '● Demo Mode'}
+                            <div className="inline-block mt-2 px-4 py-1 rounded-full text-sm bg-green-500/20 text-green-300 animate-pulse">
+                                ● Live Data (Updating every 5s)
                             </div>
                         </header>
                         

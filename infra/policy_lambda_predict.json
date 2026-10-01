@@ -1,0 +1,29 @@
+{
+  "Comment": "IAM policy for the weather-predict Lambda (writes to Timestream).",
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "timestream:WriteRecords"
+      ],
+      "Resource": "arn:aws:timestream:REGION:ACCOUNT_ID:database/weatherdb/table/readings"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "timestream:DescribeEndpoints"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:REGION:ACCOUNT_ID:*"
+    }
+  ]
+}

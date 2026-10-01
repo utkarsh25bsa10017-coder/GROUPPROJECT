@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP32 Weather Dashboard</title>
+<style>
+  :root { --bg:#0f1420; --card:#1a2132; --line:#2a3447; --txt:#e6ecf5; --dim:#8b9bb4; --accent:#4da3ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+         background:var(--bg); color:var(--txt); padding:24px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--dim); font-size:13px; margin-bottom:20px; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 22px; }
+  .big { font-size:34px; font-weight:600; }
+  .label { color:var(--dim); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+  table { width:100%; border-collapse:collapse; background:var(--card);
+          border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  th,td { padding:10px 14px; text-align:left; font-size:14px; border-bottom:1px solid var(--line); }
+  th { color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  tr:last-child td { border-bottom:none; }
+  button { background:var(--accent); color:#06101f; border:0; padding:9px 16px;
+           border-radius:8px; font-weight:600; cursor:pointer; }
+  #err { color:#ff7a7a; font-size:13px; margin-top:12px; }
+  .bar { height:5px; background:var(--accent); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<h1>ESP32 Weather Station</h1>
+<div class="sub">
+  Live reading + next 10 hours &nbsp;·&nbsp;
+  <span id="updated">loading…</span> &nbsp;
+  <button onclick="load()">Refresh</button>
+</div>
+
+<div class="row" id="now"></div>
+
+<table>
+  <thead>
+    <tr><th>+Hr</th><th>Time</th><th>Temp</th><th>Humidity</th><th>Rain</th><th>Condition</th></tr>
+  </thead>
+  <tbody id="rows"><tr><td colspan="6">Loading…</td></tr></tbody>
+</table>
+
+<div id="err"></div>
+
+<script>
+// ======================= FILL THIS IN =======================
+// API Gateway invoke URL + route, e.g.
+// https://abc123.execute-api.ap-south-1.amazonaws.com/weather
+const API_URL = "";
+// ============================================================
+
+function card(label, value) {
+  return `<div class="card"><div class="label">${label}</div>
+          <div class="big">${value}</div></div>`;
+}
+
+async function load() {
+  const err = document.getElementById("err");
+  err.textContent = "";
+
+  if (!API_URL) { err.textContent = "Set API_URL at the top of this file."; return; }
+
+  try {
+    const res = await fetch(API_URL, { cache: "no-store" });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    // ---- current ----
+    // current[] rows are {measure_name, value, time}; take newest of each
+    const latest = {};
+    for (const r of (data.current || [])) {
+      if (!(r.measure_name in latest)) latest[r.measure_name] = r;
+    }
+    const t = latest.temperature, h = latest.humidity;
+
+    document.getElementById("now").innerHTML =
+        card("Temperature", t ? Number(t.value).toFixed(1) + " °C" : "—")
+      + card("Humidity",    h ? Number(h.value).toFixed(0) + " %"  : "—")
+      + card("Device",      (t && t.device_id) || "—");
+
+    const stamp = t ? t.time : null;
+    document.getElementById("updated").textContent =
+      stamp ? "last reading " + stamp + " UTC" : "no recent reading";
+
+    // ---- forecast ----
+    const fc = data.forecast || [];
+    document.getElementById("rows").innerHTML = fc.length ? fc.map(f => `
+      <tr>
+        <td>+${f.hour_ahead}h</td>
+        <td>${(f.time || "").slice(11,16)}</td>
+        <td>${f.temperature?.toFixed(1) ?? "—"} °C</td>
+        <td>${f.humidity?.toFixed(0) ?? "—"} %</td>
+        <td>${f.rain_chance?.toFixed(0) ?? "—"} %
+            <div class="bar" style="width:${f.rain_chance ?? 0}%"></div></td>
+        <td>${f.condition ?? "—"}</td>
+      </tr>`).join("") : `<tr><td colspan="6">No forecast yet.</td></tr>`;
+
+  } catch (e) {
+    err.textContent = "Error: " + e.message;
+  }
+}
+
+load();
+setInterval(load, 60000);   // auto-refresh every minute
+</script>
+</body>
+</html>

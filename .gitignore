@@ -1,0 +1,17 @@
+# real credentials - never commit (secrets.h.example IS committed)
+secrets.h
+!secrets.h.example
+
+# device certificates downloaded by infra/deploy.sh
+certs/
+*.pem
+*.pem.crt
+*.pem.key
+
+# build / tooling
+build/
+.vscode/
+__pycache__/
+*.pyc
+*.zip
+.DS_Store

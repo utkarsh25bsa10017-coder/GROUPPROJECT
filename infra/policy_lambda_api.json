@@ -1,0 +1,32 @@
+{
+  "Comment": "IAM policy for the weather-api Lambda (reads from Timestream).",
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "timestream:Select",
+        "timestream:DescribeTable",
+        "timestream:ListMeasures"
+      ],
+      "Resource": "arn:aws:timestream:REGION:ACCOUNT_ID:database/weatherdb/table/readings"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "timestream:DescribeEndpoints",
+        "timestream:CancelQuery"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:REGION:ACCOUNT_ID:*"
+    }
+  ]
+}
